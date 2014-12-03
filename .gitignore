@@ -1,0 +1,4 @@
+# Ignore vim swp files
+*.swp
+# Ignore pyc files
+*.pyc
