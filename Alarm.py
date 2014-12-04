@@ -160,7 +160,7 @@ def parse_alarm_string(string):
 	# Create a time tuple from the first 5 fields
 	time = tuple(fields[:5])
 	# Last field is the name
-	name = fields[5]
+	name = fields[5].strip()
 	# Create and return the object
 	return Alarm(name, time)
 
