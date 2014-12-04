@@ -111,6 +111,10 @@ class Alarm(object):
 	def __cmp__(self, other):
 		return cmp(self.next_run, other.next_run)
 
+	# A string describing the alarm
+	def __str__(self):
+		return str(self.time) + ' ' + self.name
+
 # Find the time in a list that's clostest to the given time
 def closest_time(values, target):
 	nearest = values[0]
@@ -142,3 +146,18 @@ def wild_int(value):
 	if '*' in value:
 		return -1
 	return int(value)
+
+# Create an alarm object from a string
+def parse_alarm_string(string):
+	# Split on spaces
+	fields = string.split(' ')
+	# Must have exactly 6 fields
+	if len(fields) != 6:
+		raise ValueError('Alarm string must have exactly 6 fields')
+	# Create a time tuple from the first 5 fields
+	time = tuple(fields[:5])
+	# Last field is the name
+	name = fields[5]
+	# Create and return the object
+	return Alarm(name, time)
+

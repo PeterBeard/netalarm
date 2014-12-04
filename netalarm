@@ -1,0 +1,16 @@
+# Netalarm definitions file
+#  Format is minute hour day month day_of_week alarm_name
+#    Minute:      0-59
+#    Hour:        0-23
+#    Day:         1-31
+#    Month:       1-12
+#    Day of Week: 0-6 (Monday-Sunday)
+#    Alarm name:  String of numbers and letters only, must be unique
+#
+# Some examples:
+# 0 0 * * * -- Run at midnight every day
+# 30 12 * * 3 -- Run Thursdays at 12:30
+# Lists and ranges are also supported. For example:
+# 0 0 1-7 1,6 * -- Run at midnight on the 1st through the 7th of January and June
+# 10 15 * * 0,2,4 -- Run at 15:10 every Mon, Wed, and Fri
+

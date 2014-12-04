@@ -1,6 +1,7 @@
 import AlarmQueue
 import Alarm
 import Commands
+import ConfigParser
 import Client
 from Log import debug
 
@@ -10,19 +11,31 @@ import sys
 import time
 import thread
 
-TCP_IP = '127.0.0.1'
-TCP_PORT = 26400
-
 BUFFER_SIZE = 128
-
-# Minimum queue update period (minutes)
-QUEUE_UPDATE_INTERVAL_MINUTES = 30
+#CONF_FILE = '/etc/netalarm/settings.conf'
+CONF_FILE = 'settings.conf'
 
 # Handle SIGINT
 def handle_sigint(signal, frame):
 	debug('Caught SIGINT, cleaning up...')
 	debug('Done.')
 	sys.exit(0)
+
+# Load alarms from a file
+def load_alarms(filename):
+	q = AlarmQueue.AlarmQueue()
+	# Open the file and parse each non-comment line
+	fh = open(filename, 'r')
+	for line in fh:
+		if len(line.strip()) > 0 and line[0] != '#':
+			q.enqueue(Alarm.parse_alarm_string(line))
+	fh.close()
+	return q
+	
+
+# Check the alarm file for new alarms
+def update_alarm_queue(queue, alarm_file):
+	pass
 
 # Main listening thread
 def listening_thread():
@@ -61,6 +74,19 @@ def listening_thread():
 		
 	s.close()
 
+# Read the config file
+p = ConfigParser.RawConfigParser()
+p.read(CONF_FILE)
+QUEUE_UPDATE_INTERVAL_MINUTES = p.get('Global', 'updateperiod')
+TCP_IP = p.get('Global', 'address')
+TCP_PORT = int(p.get('Global', 'port'))
+ALARM_FILE = p.get('Global', 'alarmfile')
+
+# Load alarms from file
+alarms = load_alarms(ALARM_FILE)
+# This alarm runs every so often to make sure the queue gets updated with new alarms
+alarms.enqueue(Alarm.Alarm('queue_update', (QUEUE_UPDATE_INTERVAL_MINUTES,-1,-1,-1,-1)))
+
 # Add handler for SIGINT
 signal.signal(signal.SIGINT, handle_sigint)
 
@@ -70,17 +96,6 @@ s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # Start listening
 lthread = thread.start_new_thread(listening_thread, ())
 
-# Create some alarms
-alarms = AlarmQueue.AlarmQueue()
-# This alarm runs every so often to make sure the queue gets updated with new alarms
-alarms.enqueue(Alarm.Alarm('queue_update', (QUEUE_UPDATE_INTERVAL_MINUTES,-1,-1,-1,-1)))
-# Set a couple of alarms for one minute from now
-now = time.localtime()
-alarm1 = Alarm.Alarm('test_alarm', (now.tm_min + 1,-1,-1,-1,-1))
-alarm2 = Alarm.Alarm('test_alarm_2', (now.tm_min + 1,-1,-1,-1,-1))
-alarms.enqueue(alarm1)
-alarms.enqueue(alarm2)
-
 # Create a client
 good_client = Client.Client('127.0.0.1', 26401, 'goodclient')
 bad_client = Client.Client('127.0.0.1', 26402, 'badclient')
@@ -88,8 +103,7 @@ bad_client = Client.Client('127.0.0.1', 26402, 'badclient')
 # Create a hashtable of subscriptions
 subscriptions = {}
 
-subscriptions[alarm1] = [good_client, bad_client]
-subscriptions[alarm2] = [good_client, bad_client]
+subscriptions[alarms.events[0]] = [good_client, bad_client]
 
 # Alarm loop
 while True:

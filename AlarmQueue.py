@@ -32,4 +32,11 @@ class AlarmQueue(object):
 					break
 		# Insert
 		self.events.insert(index, event)
-		
+
+	# Make a nice string out of all the alarms in the queue - 1 per line
+	def __str__(self):
+		string = ''
+		for e in self.events:
+			string += str(e) + '\n'
+		return string
+
