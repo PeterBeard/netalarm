@@ -25,3 +25,12 @@ def warn(message, logfile=None):
 	else:
 		pass
 
+# Log an error
+def error(message, logfile=None):
+	err_string = '(ERR!) ' + message
+	err_string = prepend_datetime(err_string)
+	# Log the message
+	if not logfile:
+		print err_string
+	else:
+		pass
