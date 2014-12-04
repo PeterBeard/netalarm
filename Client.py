@@ -1,22 +1,15 @@
-import Alarm
-
 # The alarm client class
 class Client(object):
 	# Constructor
-	def __init__(self, ip, port, name):
+	def __init__(self, ip, port):
 		self.ip = ip
 		self.port = port
-		self.name = name
-	
-	# Add an alarm
-	def add_alarm(self, alarm):
-		self.alarms.append(Alarm.Alarm(alarm, ''))
 
-	# Check to see if we have any alarms to trigger
-	def triggered_alarms(self, time):
-		triggered = []
-		for alarm in self.alarms:
-			if not alarm.triggered:
-				alarm.triggered = True
-				triggered.append(alarm)
-		return triggered
+	# Test equality
+	def __eq__(self, other)
+		return self.ip == other.ip and self.port == other.port
+
+	# Make a nice string out of the IP and port number
+	def __str__(self):
+		return self.ip + ':' + str(self.port)
+
