@@ -32,11 +32,6 @@ def load_alarms(filename):
 	fh.close()
 	return q
 	
-
-# Check the alarm file for new alarms
-def update_alarm_queue(queue, alarm_file):
-	pass
-
 # Main listening thread
 def listening_thread(address, port):
 	# Main listening thread
@@ -107,8 +102,6 @@ settings = parse_config_file(CONF_FILE)
 
 # Load alarms from file
 alarms = load_alarms(settings['alarm_file'])
-# This alarm runs every so often to make sure the queue gets updated with new alarms
-alarms.enqueue(Alarm.Alarm('queue_update', (settings['update_interval'],-1,-1,-1,-1)))
 
 # Add handler for SIGINT
 signal.signal(signal.SIGINT, handle_sigint)
@@ -116,26 +109,34 @@ signal.signal(signal.SIGINT, handle_sigint)
 # Start listening
 lthread = thread.start_new_thread(listening_thread, (settings['address'], settings['port']))
 
-# Create a client
-good_client = Client.Client('127.0.0.1', 26401, 'goodclient')
-bad_client = Client.Client('127.0.0.1', 26402, 'badclient')
-
 # Create a hashtable of subscriptions
 subscriptions = {}
-subscriptions[alarms.events[0]] = [good_client, bad_client]
 
 # Create a socket
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # Alarm loop
 while True:
-	# When is the next alarm?
-	alarm = alarms.peek()
-	wait = alarm.wait_time()
-	# If the wait is long (like, several hours long), wake up periodically to see if there's something fresher on the queue
-	while wait > settings['update_interval'] * 60:
-		Log.debug('Nothing in the queue for another %i seconds. Sleeping for %i minutes before checking again.' % (wait, settings['update_interval']))
-		time.sleep(settings['update_interval'] * 60)
+	if len(alarms) > 0:
+		# When is the next alarm?
+		alarm = alarms.peek()
 		wait = alarm.wait_time()
+	else:
+		wait = 0
+	# If the wait is long (like, several hours long), wake up periodically to see if there's something fresher on the queue
+	# This is also all we can do if the queue is empty
+	while len(alarms) == 0 or wait > settings['update_interval'] * 60:
+		if len(alarms) == 0:
+			Log.debug('Alarm queue is empty. Re-checking in %i mins.' % settings['update_interval'])
+		else:
+			Log.debug('Next alarm not for %i seconds. Re-checking in %i mins.' % (wait, settings['update_interval']))
+		# zzz
+		time.sleep(settings['update_interval'] * 60)
+		# Reload the alarm file
+		alarms = load_alarms(settings['alarm_file'])
+		# See how long we'll have to wait now
+		if len(alarms) > 0:
+			alarm = alarms.peek()
+			wait = alarm.wait_time()
 
 	Log.debug('Next alarm in %i seconds. Sleeping until then.' % wait)
 	# If two alarms occur at the same time, wait will be zero or negative.

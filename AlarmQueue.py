@@ -40,3 +40,7 @@ class AlarmQueue(object):
 			string += str(e) + '\n'
 		return string
 
+	# Return the number of items in the queue
+	def __len__(self):
+		return len(self.events)
+
