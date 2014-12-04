@@ -1,9 +1,11 @@
 # Commands for the alarm clock daemon
 # Valid commands are:
-#	ALARM <NAME> -- Triggers the alarm called NAME if it exists
-#	REGISTER <KEY> <NAME> <ALARM LIST> -- Register client with name NAME and public key KEY that provides alarms in ALARM LIST
-#	SUCCESS <NAME> -- Alarm NAME successfully triggered
-#	FAIL <NAME> -- Alarm NAME failed
+#	A <NAME>  -- Triggers the alarm called NAME if it exists
+#	B <NAME>  -- Subscribe client to alarm NAME
+#	S <NAME>  -- Alarm NAME successfully triggered OR subscription to NAME registered
+#	F <NAME>  -- Alarm NAME failed
+#	FB <NAME> -- Subscription to NAME failed because client is already subscribed to this alarm
+#	FN <NAME> -- Subscription to NAME failed because it does not exist
 
 import socket
 
@@ -15,28 +17,39 @@ def parse_command(command_string):
 	# Split on spaces and then process each command as needed
 	cmd = command_string.split(' ')
 	# Is it a valid command?
-	if cmd[0] == 'ALARM':
-		# ALARM <NAME>
+	if cmd[0] == 'A':
+		# A <NAME>
 		if len(cmd) == 2:
 			return ('A', cmd[1])
 		else:
 			return None
-	elif cmd[0] == 'REGISTER':
-		# REGISTER <KEY> <NAME> <ALARM LIST>
-		if len(cmd) == 4:
-			return ('R', cmd[1], cmd[2], cmd[3])
+	elif cmd[0] == 'B':
+		# B <NAME>
+		if len(cmd) == 2:
+			return ('B', cmd[1])
 		else:
 			return None
-	elif cmd[0] == 'SUCCESS':
-		# SUCCESS <NAME>
+	elif cmd[0] == 'S':
+		# S <NAME>
 		if len(cmd) == 2:
 			return ('S', cmd[1])
 		else:
 			return None
-	elif cmd[0] == 'FAIL':
-		# FAIL <NAME>
+	elif cmd[0] == 'F':
+		# F <NAME>
 		if len(cmd) == 2:
 			return ('F', cmd[1])
+		else:
+			return None
+	elif cmd[0] == 'FN':
+		# FN <NAME>
+		if len(cmd) == 2:
+			return ('FN', cmd[1])
+		else:
+			return None
+	elif cmd[0] == 'FB':
+		if len(cmd) == '2':
+			return ('FB', cmd[1])
 		else:
 			return None
 	else:
