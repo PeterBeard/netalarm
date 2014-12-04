@@ -61,22 +61,32 @@ def create_command_string(command):
 	# Create the string
 	if command[0] == 'A':
 		if len(command) == 2:
-			return 'ALARM ' + command[1]
+			return 'A ' + command[1]
 		else:
 			return None
-	elif command[0] == 'R':
-		if len(command) == 3:
-			return 'REGISTER ' + command[1:].join(' ')
+	elif command[0] == 'B':
+		if len(command) == 2:
+			return 'B ' + command[1:].join(' ')
 		else:
 			return None
 	elif command[0] == 'S':
 		if len(command) == 2:
-			return 'SUCCESS ' + command[1]
+			return 'S ' + command[1]
 		else:
 			return None
 	elif command[0] == 'F':
 		if len(command) == 2:
-			return 'FAIL ' + command[1]
+			return 'F ' + command[1]
+		else:
+			return None
+	elif command[0] == 'FN':
+		if len(command) == 2:
+			return 'FN ' + command[1]
+		else:
+			return None
+	elif command[0] == 'FB':
+		if len(command) == 2:
+			return 'FB ' + command[1]
 		else:
 			return None
 	else:
