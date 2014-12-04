@@ -43,12 +43,14 @@ def listening_thread(address, port):
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	s.bind((address, port))
 	s.listen(1)
-	Log.debug('Listening on port %i' % port)
+	Log.debug('Listening on %s:%i' % (address, port))
 
 	while True:
 		# Accept incoming connection
 		connection, in_address = s.accept()
-		Log.debug('Connection address: %s:%s' % (in_address[0], in_address[1]))
+		# We'll always refer to the client by ip and port, so this saves some space
+		client = in_address[0] + ':' + in_address[1]
+		Log.debug('Connection from client %s' % client)
 		# Receive data
 		command_string = ''
 		while True:
@@ -57,20 +59,20 @@ def listening_thread(address, port):
 				break
 			command_string += data
 		# Print the command string
-		Log.debug('Received command: %s' % command_string)
+		Log.debug('Received command %s from %s' % (command_string, client))
 		# Close the connection from the server
 		connection.close()
 		# Parse the command
 		command = Commands.parse_command(command_string)
 		if command:
 			if command[0] == 'S':
-				Log.debug('Alarm %s succeeded on client at %s' % (command[1], in_address[0]))
+				Log.debug('Alarm %s succeeded on client %s' % (command[1], client))
 			elif command[0] == 'F':
-				Log.debug('Alarm %s failed on client at %s' % (command[1], in_address[0]))
+				Log.debug('Alarm %s failed on client %s' % (command[1], client))
 			else:
-				Log.debug('Invalid command: %s' % command[0])
+				Log.error('Invalid command: %s from %s' % (command[0], client))
 		else:
-			Log.debug('Invalid command.')
+			Log.error('Empty command from %s' % client)
 		
 	s.close()
 
