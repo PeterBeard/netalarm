@@ -6,7 +6,7 @@ class Client(object):
 		self.port = port
 
 	# Test equality
-	def __eq__(self, other)
+	def __eq__(self, other):
 		return self.ip == other.ip and self.port == other.port
 
 	# Make a nice string out of the IP and port number
