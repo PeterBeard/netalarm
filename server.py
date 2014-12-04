@@ -3,7 +3,7 @@ import Alarm
 import Commands
 import ConfigParser
 import Client
-from Log import debug
+import Log
 
 import socket
 import signal
@@ -17,8 +17,8 @@ CONF_FILE = 'settings.conf'
 
 # Handle SIGINT
 def handle_sigint(signal, frame):
-	debug('Caught SIGINT, cleaning up...')
-	debug('Done.')
+	Log.debug('Caught SIGINT, cleaning up...')
+	Log.debug('Done.')
 	sys.exit(0)
 
 # Load alarms from a file
@@ -43,12 +43,12 @@ def listening_thread(address, port):
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	s.bind((address, port))
 	s.listen(1)
-	debug('Listening on port %i' % port)
+	Log.debug('Listening on port %i' % port)
 
 	while True:
 		# Accept incoming connection
 		connection, in_address = s.accept()
-		debug('Connection address: %s:%s' % (in_address[0], in_address[1]))
+		Log.debug('Connection address: %s:%s' % (in_address[0], in_address[1]))
 		# Receive data
 		command_string = ''
 		while True:
@@ -57,32 +57,45 @@ def listening_thread(address, port):
 				break
 			command_string += data
 		# Print the command string
-		debug('Received command: %s' % command_string)
+		Log.debug('Received command: %s' % command_string)
 		# Close the connection from the server
 		connection.close()
 		# Parse the command
 		command = Commands.parse_command(command_string)
 		if command:
 			if command[0] == 'S':
-				debug('Alarm %s succeeded on client at %s' % (command[1], in_address[0]))
+				Log.debug('Alarm %s succeeded on client at %s' % (command[1], in_address[0]))
 			elif command[0] == 'F':
-				debug('Alarm %s failed on client at %s' % (command[1], in_address[0]))
+				Log.debug('Alarm %s failed on client at %s' % (command[1], in_address[0]))
 			else:
-				debug('Invalid command: %s' % command[0])
+				Log.debug('Invalid command: %s' % command[0])
 		else:
-			debug('Invalid command.')
+			Log.debug('Invalid command.')
 		
 	s.close()
 
 # Get settings from file and return a dictionary of settings
 def parse_config_file(filename):
+	# Use ConfigParser to handle the actual parsing of the file
 	p = ConfigParser.RawConfigParser()
 	p.read(filename)
 	# Build the dictionary
 	settings = {}
-	settings['update_interval'] = p.get('Global', 'updateperiod')
+
+	# Update interval
+	settings['update_interval'] = int(p.get('Global', 'updateperiod'))
+	# Maximum update interval is 1 hour. Obviously, it has to be positive too.
+	if settings['update_interval'] > 60 or settings['update_interval'] < 1:
+		Log.warn('Changed queue update interval to 60 from %s' % settings['update_interval'])
+		settings['update_interval'] = 60
+
+	# IP address and port to use
 	settings['address'] = p.get('Global', 'address')
 	settings['port'] = int(p.get('Global', 'port'))
+	# Port less than 1024 is probably very unwise
+	if settings['port'] < 1024:
+		Log.warn('TCP port is less than 1024 (%i)' % settings['port'])
+	# Location of the alarm file
 	settings['alarm_file'] = p.get('Global', 'alarmfile')
 
 	return settings
@@ -98,9 +111,6 @@ alarms.enqueue(Alarm.Alarm('queue_update', (settings['update_interval'],-1,-1,-1
 # Add handler for SIGINT
 signal.signal(signal.SIGINT, handle_sigint)
 
-# Create a socket
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
 # Start listening
 lthread = thread.start_new_thread(listening_thread, (settings['address'], settings['port']))
 
@@ -110,9 +120,10 @@ bad_client = Client.Client('127.0.0.1', 26402, 'badclient')
 
 # Create a hashtable of subscriptions
 subscriptions = {}
-
 subscriptions[alarms.events[0]] = [good_client, bad_client]
 
+# Create a socket
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # Alarm loop
 while True:
 	# When is the next alarm?
@@ -120,11 +131,11 @@ while True:
 	wait = alarm.wait_time()
 	# If the wait is long (like, several hours long), wake up periodically to see if there's something fresher on the queue
 	while wait > settings['update_interval'] * 60:
-		debug('Nothing in the queue for another %i seconds. Sleeping for %i minutes before checking again.' % (wait, settings['update_interval']))
+		Log.debug('Nothing in the queue for another %i seconds. Sleeping for %i minutes before checking again.' % (wait, settings['update_interval']))
 		time.sleep(settings['update_interval'] * 60)
 		wait = alarm.wait_time()
 
-	debug('Next alarm in %i seconds. Sleeping until then.' % wait)
+	Log.debug('Next alarm in %i seconds. Sleeping until then.' % wait)
 	# If two alarms occur at the same time, wait will be zero or negative.
 	# No point in sleeping if that's the case.
 	if wait > 0:
@@ -141,9 +152,9 @@ while True:
 			try:
 				cmd_success = Commands.send_alarm(s, alarm.name, client.ip, client.port)
 				if not cmd_success:
-					debug('Error sending command to client at %s:%i' % (client.ip, client.port))
+					Log.debug('Error sending command to client at %s:%i' % (client.ip, client.port))
 			except socket.error:
-				debug('Failed to connect to client at %s' % client.ip)
+				Log.debug('Failed to connect to client at %s' % client.ip)
 			s.close()
 	# Sleep for 1 second to prevent the alarm from firing again
 	time.sleep(1)
