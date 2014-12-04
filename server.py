@@ -148,6 +148,7 @@ while True:
 	# If anybody cares about this alarm, alert them
 	if alarm in subscriptions:
 		clients = subscriptions[alarm]
+		Log.debug('Alerting %i clients about alarm "%s"' % (len(clients), alarm.name))
 		# Notify all subscribed clients
 		for client in clients:
 			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -159,6 +160,8 @@ while True:
 			except socket.error:
 				Log.debug('Failed to connect to client at %s' % client.ip)
 			s.close()
+	else:
+		Log.debug('No subscriptions to alarm "%s"' % alarm.name)
 	# Sleep for 1 second to prevent the alarm from firing again
 	time.sleep(1)
 	# Stick the alarm back in the queue if it repeats
