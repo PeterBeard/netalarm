@@ -149,8 +149,11 @@ def wild_int(value):
 
 # Create an alarm object from a string
 def parse_alarm_string(string):
-	# Split on spaces
-	fields = string.split(' ')
+	# Split on spaces or tabs
+	if '\t' in string:
+		fields = string.split('\t')
+	else:
+		fields = string.split(' ')
 	# Must have exactly 6 fields
 	if len(fields) != 6:
 		raise ValueError('Alarm string must have exactly 6 fields')
