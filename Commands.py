@@ -66,7 +66,7 @@ def create_command_string(command):
 			return None
 	elif command[0] == 'B':
 		if len(command) == 2:
-			return 'B ' + command[1:].join(' ')
+			return 'B ' + command[1]
 		else:
 			return None
 	elif command[0] == 'S':
