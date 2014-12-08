@@ -1,0 +1,6 @@
+# Netalarm client definitions
+# Structure is:
+# alarm_name		command
+#
+# Where alarm_name is the name of an alarm triggered by the server (no spaces) and
+# command is a shell command to run when the alarm is triggered
