@@ -172,7 +172,7 @@ while True:
 		# zzz
 		time.sleep(settings['update_interval'] * 60)
 		# Reload the alarm file
-		alarm_queue = load_alarms(settings['alarm_file'])
+		(alarm_queue, alarm_list) = load_alarms(settings['alarm_file'])
 		# See how long we'll have to wait now
 		if len(alarm_queue) > 0:
 			alarm = alarm_queue.peek()
