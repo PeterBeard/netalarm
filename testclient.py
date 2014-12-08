@@ -8,13 +8,7 @@ import sys
 import time
 import thread
 
-TCP_IP = '127.0.0.1'
-TCP_PORT = 26403
-
 CLIENT_NAME = 'uglyclient'
-
-SERVER_IP = '127.0.0.1'
-SERVER_PORT = 26400
 
 BUFFER_SIZE = 1024
 
@@ -40,6 +34,9 @@ def parse_config_file(filename):
 	# Port less than 1024 is probably very unwise
 	if settings['port'] < 1024:
 		Log.warn('TCP port is less than 1024 (%i)' % settings['port'])
+	# Server IP address and port
+	settings['server_address'] = p.get('Global','server_address')
+	settings['server_port'] = int(p.get('Global','server_port'))
 	# Location of the alarm file
 	settings['alarm_file'] = p.get('Global', 'alarmfile')
 
@@ -77,12 +74,12 @@ def load_alarms(filename):
 	return l
 
 # Listen for connections from the server and handle them
-def listen():
+def listen(settings):
 	# Create a socket and listen for packets
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	s.bind((TCP_IP, TCP_PORT))
+	s.bind((settings['address'], settings['port']))
 	s.listen(1)
-	Log.debug('Listening on port %i' % TCP_PORT)
+	Log.debug('Listening on port %i' % settings['port'])
 	# This is our main listening thread
 	while True:
 		# Accept incoming connection
@@ -150,8 +147,8 @@ alarms = load_alarms(settings['alarm_file'])
 t = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 t.settimeout(RESPONSE_TIMEOUT)
 t.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-t.bind((TCP_IP, TCP_PORT))
-t.connect((SERVER_IP, SERVER_PORT))
+t.bind((settings['address'], settings['port']))
+t.connect((settings['server_address'], settings['server_port']))
 
 # Ask the server to subscribe us for each alarm
 for alarm in alarms:
@@ -181,5 +178,5 @@ for alarm in alarms:
 t.close()
 
 # Listen
-listen()
+listen(settings)
 
