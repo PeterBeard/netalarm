@@ -9,7 +9,7 @@
 
 import socket
 
-BUFFER_SIZE = 128
+BUFFER_SIZE = 1024
 
 # Parse a command string into a command tuple
 # Returns a tuple on success, None on failure
@@ -48,7 +48,7 @@ def parse_command(command_string):
 		else:
 			return None
 	elif cmd[0] == 'FB':
-		if len(cmd) == '2':
+		if len(cmd) == 2:
 			return ('FB', cmd[1])
 		else:
 			return None
@@ -102,6 +102,16 @@ def send_alarm(sock, alarm_name, client_ip, client_port):
 		return False
 	# Create a command string
 	command_str = create_command_string(('A', alarm_name))
+	# Send the command string
 	sock.send(command_str)
-	return True
+	# Wait for a response
+	response = parse_command(sock.recv(BUFFER_SIZE))
+	# Return true on success, false on failure or error
+	if response:
+		if response[0] == 'S':
+			return True
+		else:
+			return False
+	else:
+		return False
 
