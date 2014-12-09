@@ -5,6 +5,7 @@ import ConfigParser
 import Client
 import Log
 
+import os
 import socket
 import signal
 import sys
@@ -18,8 +19,26 @@ CONF_FILE = 'settings.conf'
 # Handle SIGINT
 def handle_sigint(signal, frame):
 	Log.debug('Caught SIGINT, cleaning up...')
-	Log.debug('Done.')
+	# Flush stdout
+	sys.stdout.flush()
+	# Exit
 	sys.exit(0)
+
+# Handle SIGABRT
+def handle_sigabrt(signal, frame):
+	Log.debug('Caught SIGABRT, cleaning up...')
+	# Flush stdout
+	sys.stdout.flush()
+	# Exit
+	sys.exit(0)
+	
+
+# Clean up what we can and quit
+def clean_up_and_quit():
+	global process_id
+	Log.debug('Quitting.')
+	# Abort the main thread
+	os.kill(process_id, signal.SIGABRT)
 
 # Load alarms from a file
 # Return an AlarmQueue object and a list of the names of the alarms loaded
@@ -43,57 +62,79 @@ def load_alarms(filename):
 	
 # Main listening thread
 def listening_thread(address, port, alarm_list):
-	# TODO: This is global and should probably not be
-	global subscriptions
 	# Main listening thread
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	s.bind((address, port))
+	try:
+		s.bind((address, port))
+	except socket.error, e:
+		# Can't bind to address; let's just quit then
+		Log.error('Unable to bind to address %s:%i -- %s' % (address, port, str(e)))
+		s.close()
+		clean_up_and_quit()
+		return
+
 	s.listen(1)
 	Log.debug('Listening on %s:%i' % (address, port))
 
 	while True:
 		# Accept incoming connection
 		connection, in_address = s.accept()
-		# We'll always refer to the client by ip and port, so this saves some space
-		client = in_address[0] + ':' + str(in_address[1])
-		Log.debug('Connection from client %s' % client)
-		# Receive data
-		command_string = connection.recv(BUFFER_SIZE)
-		# Print the command string
-		Log.debug('Received command %s from %s' % (command_string, client))
-		# Parse the command
-		command = Commands.parse_command(command_string)
-		# Default response
-		response = 'F general'
-		if command:
-			# Alarm succeeded
-			if command[0] == 'S':
-				Log.debug('Alarm %s succeeded on client %s' % (command[1], client))
-			# Alarm failed
-			elif command[0] == 'F':
-				Log.debug('Alarm %s failed on client %s' % (command[1], client))
-			# Client wants to subscribe to an alarm
-			elif command[0] == 'B':
-				name = command[1]
-				Log.debug('%s trying to subscribe to %s' % (client, name))
-				response = add_subscription(in_address[0], in_address[1], name, alarm_list)
-				if response[0] == 'S':
-					Log.debug('Subscription added.')
-				elif response[:2] == 'FN':
-					Log.debug('No such alarm.')
-				elif response[:2] == 'FB':
-					Log.debug('Already subscribed.')
-				else:
-					Log.debug('Unknown response sent (%s)' % response)
-			else:
-				Log.error('Invalid command from %s: "%s"' % (client, command_string))
-		else:
-			Log.error('Invalid command from %s: "%s"' % (client, command_string))
-		# Respond to the client
-		connection.send(response)
-		connection.close()
+		# Create a thread to handle this connection
+		t = thread.start_new_thread(client_thread, (connection, in_address, alarm_list))
 		
 	s.close()
+
+# A thread to handle client connections
+def client_thread(connection, in_address, alarm_list):
+	# We'll always refer to the client by ip and port, so this saves some space
+	client = in_address[0] + ':' + str(in_address[1])
+	Log.debug('Connection from client %s' % client)
+	# Receive data
+	command_string = connection.recv(BUFFER_SIZE)
+	# Print the command string
+	Log.debug('Received command "%s" from %s' % (command_string, client))
+	# Parse the command
+	command = Commands.parse_command(command_string)
+	# Do something with the command
+	response = handle_command(in_address[0], in_address[1], command, alarm_list)
+	# Respond to the client and close the connection
+	if response:
+		connection.send(response)
+	connection.close()
+
+# Do something intelligent with client commands and return an appropriate response
+def handle_command(client_addr, client_port, command, alarm_list):
+	client = client_addr + ':' + str(client_port)
+	# Default response is just be quiet (i.e. no response)
+	response = None
+	# Was the command parsed successfully?
+	if command:
+		# Alarm succeeded
+		if command[0] == 'S':
+			Log.debug('Alarm %s succeeded on client %s' % (command[1], client))
+		# Alarm failed
+		elif command[0] == 'F':
+			Log.debug('Alarm %s failed on client %s' % (command[1], client))
+		# Client wants to subscribe to an alarm -- this requires a response
+		elif command[0] == 'B':
+			name = command[1]
+			Log.debug('%s trying to subscribe to %s' % (client, name))
+			response = add_subscription(client_addr, client_port, name, alarm_list)
+			if response[0] == 'S':
+				Log.debug('Subscription added.')
+			elif response[:2] == 'FN':
+				Log.debug('No such alarm.')
+			elif response[:2] == 'FB':
+				Log.debug('Already subscribed.')
+			else:
+				Log.debug('Unknown response sent (%s)' % response)
+		# We don't know what to do with this command
+		else:
+			Log.error('Invalid command from %s: "%s"' % (client, command_string))
+	else:
+		Log.error('Invalid command from %s: "%s"' % (client, command_string))
+
+	return response
 
 # Add a subscription
 def add_subscription(ip, port, alarm_name, alarm_list):
@@ -142,14 +183,18 @@ def parse_config_file(filename):
 
 	return settings
 
+# Get our PID
+process_id = os.getpid()
+
 # Read the config file
 settings = parse_config_file(CONF_FILE)
 
 # Load alarms from file
 (alarm_queue, alarm_list) = load_alarms(settings['alarm_file'])
 
-# Add handler for SIGINT
+# Add signal handlers
 signal.signal(signal.SIGINT, handle_sigint)
+signal.signal(signal.SIGABRT, handle_sigabrt)
 
 # Create a hashtable of subscriptions
 subscriptions = {}
