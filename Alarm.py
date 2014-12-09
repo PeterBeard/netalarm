@@ -40,6 +40,27 @@ class Alarm(object):
 			times = [list(set(t)) for t in times]
 			# Sort the lists
 			times = [sorted([wild_int(v) for v in t]) for t in times]
+			# Make sure all values are within range
+			# Minutes must be between 0 and 59
+			for m in times[0]:
+				if m < 0 or m > 59:
+					raise ValueError('Minutes must be between 0 and 59.')
+			# Hours must be between 0 and 23
+			for h in times[1]:
+				if h != -1 and h < 0 or h > 23:
+					raise ValueError('Hours must be between 0 and 23.')
+			# Date must be between 1 and 31
+			for d in times[2]:
+				if d != -1 and d < 1 or d > 31:
+					raise ValueError('Day must be between 1 and 31.')
+			# Month must be between 1 and 12
+			for m in times[3]:
+				if m != -1 and m < 1 or m > 12:
+					raise ValueError('Month must be between 1 and 12.')
+			# Day of week must be between 0 and 6:
+			for d in times[4]:
+				if d != -1 and d < 0 or d > 6:
+					raise ValueError('Day of week must be between 0 and 6.')
 			# Use a tuple rather than a list for immutability
 			self.time = tuple(times)
 		else:
