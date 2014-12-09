@@ -136,6 +136,20 @@ def handle_command(client_addr, client_port, command, alarm_list):
 
 	return response
 
+# Alert a client about an alarm
+def alert_client(client, alarm):
+	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	cmd_success = False
+	try:
+		cmd_success = Commands.send_alarm(s, alarm.name, client.ip, client.port)
+		if not cmd_success:
+			Log.debug('Error sending command to client at %s:%i' % (client.ip, client.port))
+		else:
+			Log.debug('Client at %s:%i indicates success.' % (client.ip, client.port))
+	except socket.error:
+		Log.debug('Failed to connect to client at %s:%i' % (client.ip, client.port))
+	s.close()
+
 # Add a subscription
 def add_subscription(ip, port, alarm_name, alarm_list):
 	# TODO: This is global and should probably not be
@@ -241,17 +255,8 @@ while True:
 		Log.debug('Alerting %i clients about alarm "%s"' % (len(clients), alarm.name))
 		# Notify all subscribed clients
 		for client in clients:
-			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			cmd_success = False
-			try:
-				cmd_success = Commands.send_alarm(s, alarm.name, client.ip, client.port)
-				if not cmd_success:
-					Log.debug('Error sending command to client at %s:%i' % (client.ip, client.port))
-				else:
-					Log.debug('Client at %s:%i indicates success.' % (client.ip, client.port))
-			except socket.error:
-				Log.debug('Failed to connect to client at %s:%i' % (client.ip, client.port))
-			s.close()
+			# Spin off a thread to talk to the client
+			t_handle = thread.start_new_thread(alert_client, (client, alarm))
 	else:
 		Log.debug('No subscriptions to alarm "%s"' % alarm.name)
 	# Sleep for 1 second to prevent the alarm from firing again
