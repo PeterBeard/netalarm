@@ -30,9 +30,14 @@ def load_alarms(filename):
 	fh = open(filename, 'r')
 	for line in fh:
 		if len(line.strip()) > 0 and line[0] != '#':
-			a = Alarm.parse_alarm_string(line)
-			q.enqueue(a)
-			l.append(a.name)
+			# Try to parse this line into an Alarm object
+			try:
+				a = Alarm.parse_alarm_string(line)
+			except ValueError, e:
+				Log.warn('Unable to parse alarm "%s": %s' % (line.strip(), str(e)))
+			else:
+				q.enqueue(a)
+				l.append(a.name)
 	fh.close()
 	return (q, l)
 	
