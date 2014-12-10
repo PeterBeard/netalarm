@@ -138,6 +138,44 @@ def dispatch_alarm(alarm_name):
 		Log.error('Alarm "%s" not found.' % alarm_name)
 		return False
 
+# Subscribe to all of the alarms loaded from the alarm file
+# Return True on success, False on failure
+def subscribe_to_alarms(alarms, settings):
+	# Did we subscribe to even one alarm?
+	success = False
+	# Connect to the server
+	t = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	t.settimeout(RESPONSE_TIMEOUT)
+	t.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+	t.bind((settings['address'], settings['port']))
+	t.connect((settings['server_address'], settings['server_port']))
+
+	# Ask the server to subscribe us for each alarm
+	for alarm in alarms:
+		command_string = Commands.create_command_string(('B', alarm))
+		t.send(command_string)
+		Log.debug('Subscription request for alarm "%s" sent.' % alarm)
+		# Receive data
+		command_string = t.recv(BUFFER_SIZE)
+		# Print the command
+		Log.debug('Got response "%s"' % command_string)
+		# Parse the command
+		command = Commands.parse_command(command_string)
+
+		if command[0] == 'FB':
+			Log.debug('Already subscribed to alarm "%s".' % alarm)
+			success = True
+		elif command[0] == 'S':
+			Log.debug('Successfully subscribed to alarm "%s".' % alarm)
+			success = True
+		elif command[0] == 'FN':
+			Log.error('Server says alarm "%s" does not exist.' % alarm)
+		else:
+			Log.error('Unable to parse response from server.')
+
+	t.close()
+	return success
+
 # Add handler for SIGINT
 signal.signal(signal.SIGINT, handle_sigint)
 
@@ -150,39 +188,13 @@ settings = parse_config_file(CONF_FILE)
 # Load alarms from the file
 alarms = load_alarms(settings['alarm_file'])
 
-# Connect to the server
-t = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-t.settimeout(RESPONSE_TIMEOUT)
-t.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-t.bind((settings['address'], settings['port']))
-t.connect((settings['server_address'], settings['server_port']))
+# Subscribe to all of our alarms
+success = subscribe_to_alarms(alarms, settings)
 
-# Ask the server to subscribe us for each alarm
-for alarm in alarms:
-	command_string = Commands.create_command_string(('B', alarm))
-	t.send(command_string)
-	Log.debug('Subscription request for alarm "%s" sent.' % alarm)
-	# Receive data
-	command_string = t.recv(BUFFER_SIZE)
-	# Print the command
-	Log.debug('Got response "%s"' % command_string)
-	# Parse the command
-	command = Commands.parse_command(command_string)
-
-	if command[0] == 'FB':
-		Log.debug('Already subscribed to alarm "%s".' % alarm)
-	elif command[0] == 'S':
-		Log.debug('Successfully subscribed to alarm "%s".' % alarm)
-	elif command[0] == 'FN':
-		Log.error('Server says alarm "%s" does not exist.' % alarm)
-		t.close()
-		sys.exit(1)
-	else:
-		Log.error('Unable to parse response from server.')
-		t.close()
-		sys.exit(1)
-
-t.close()
+# Couldn't subscribe to alarms; quit
+if not success:
+	Log.error('Failed to subscribe to any alarms; quitting.')
+	sys.exit(1)
 
 # Listen
 listen(settings)
