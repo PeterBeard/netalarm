@@ -13,7 +13,7 @@ def debug(message, logfile=None):
 	if not logfile:
 		print debug_string
 	else:
-		pass
+		write_to_logfile(debug_string, logfile)
 
 # Log a warning
 def warn(message, logfile=None):
@@ -23,7 +23,7 @@ def warn(message, logfile=None):
 	if not logfile:
 		print warning_string
 	else:
-		pass
+		write_to_logfile(warning_string, logfile)
 
 # Log an error
 def error(message, logfile=None):
@@ -33,4 +33,10 @@ def error(message, logfile=None):
 	if not logfile:
 		print err_string
 	else:
-		pass
+		write_to_logfile(err_string, logfile)
+
+# Write to file
+def write_to_logfile(message, logfile):
+	with open(logfile, 'a') as file:
+		file.write(message)
+	
