@@ -126,7 +126,11 @@ def dispatch_alarm(alarm_name):
 		command = alarms[alarm_name]
 		Log.debug('Alarm "%s" triggered, running command "%s"' % (alarm_name, ' '.join(command)))
 		# Try to run the command in the background
-		pid = subprocess.Popen(command)
+		try:
+			pid = subprocess.Popen(command)
+		except OSError, e:
+			Log.error('Command "%s" failed: %s' % (' '.join(command), str(e)))
+			return False
 		Log.debug('Successfully ran command "%s"' % ' '.join(command))
 		return True
 	# No such alarm
