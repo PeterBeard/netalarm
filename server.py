@@ -35,10 +35,10 @@ def handle_sigabrt(signal, frame):
 # Handle USR1 (reload alarm definitions)
 def handle_sigusr1(signal, frame):
 	# TODO: More global variables :/
-	global alarms, alarm_list, settings
+	global alarms, settings
 	Log.debug('Caught SIGUSR1, reloading alarm defnitions.')
 	# Reload alarms
-	(alarms, alarm_list) = load_alarms(settings['alarm_file'])
+	alarms = load_alarms(settings['alarm_file'])
 
 # Clean up what we can and quit
 def clean_up_and_quit():
@@ -77,7 +77,6 @@ def parse_config_file(filename):
 
 def load_alarms(filename):
 	q = AlarmQueue.AlarmQueue()
-	l = []
 	# Open the file and parse each non-comment line
 	fh = open(filename, 'r')
 	for line in fh:
@@ -89,9 +88,8 @@ def load_alarms(filename):
 				Log.warn('Unable to parse alarm "%s": %s' % (line.strip(), str(e)))
 			else:
 				q.enqueue(a)
-				l.append(a.name)
 	fh.close()
-	return (q, l)
+	return q
 	
 # Do something intelligent with client commands and return an appropriate response
 def handle_client_command(client, command):
@@ -141,13 +139,13 @@ def handle_alarm_response(client, command):
 # Add a subscription
 def add_subscription(ip, port, alarm_name):
 	# TODO: This is global and should probably not be
-	global subscriptions, alarm_list
+	global subscriptions, alarm_queue
 	# Does the alarm exist
-	if alarm_name not in alarm_list:
+	if alarm_name not in alarm_queue.names:
 		return Commands.create_command_string(('FN', alarm_name))
 	# Try to add the subscription
 	client_obj = Client.Client(ip, port)
-	if alarm_name in alarm_list:
+	if alarm_name in alarm_queue.names:
 		if alarm_name in subscriptions:
 			# Already subscribed
 			if any(c for c in subscriptions[alarm_name] if c == client_obj):
@@ -160,7 +158,7 @@ def add_subscription(ip, port, alarm_name):
 	return Commands.create_command_string(('S', alarm_name))
 
 # Main listening thread
-def listening_thread(address, port, alarm_list):
+def listening_thread(address, port):
 	# Main listening thread
 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	try:
@@ -192,7 +190,7 @@ process_id = os.getpid()
 settings = parse_config_file(CONF_FILE)
 
 # Load alarms from file
-(alarm_queue, alarm_list) = load_alarms(settings['alarm_file'])
+alarm_queue = load_alarms(settings['alarm_file'])
 
 # Add signal handlers
 signal.signal(signal.SIGINT, handle_sigint)
@@ -203,7 +201,7 @@ signal.signal(signal.SIGUSR1, handle_sigusr1)
 subscriptions = {}
 
 # Start listening
-lthread = thread.start_new_thread(listening_thread, (settings['address'], settings['port'], alarm_list))
+lthread = thread.start_new_thread(listening_thread, (settings['address'], settings['port']))
 
 # Create a socket
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -225,7 +223,7 @@ while True:
 		# zzz
 		time.sleep(settings['update_interval'] * 60)
 		# Reload the alarm file
-		(alarm_queue, alarm_list) = load_alarms(settings['alarm_file'])
+		alarm_queue = load_alarms(settings['alarm_file'])
 		# See how long we'll have to wait now
 		if len(alarm_queue) > 0:
 			alarm = alarm_queue.peek()
