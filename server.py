@@ -32,6 +32,14 @@ def handle_sigabrt(signal, frame):
 	# Exit
 	sys.exit(0)
 
+# Handle USR1 (reload alarm definitions)
+def handle_sigusr1(signal, frame):
+	# TODO: More global variables :/
+	global alarms, alarm_list, settings
+	Log.debug('Caught SIGUSR1, reloading alarm defnitions.')
+	# Reload alarms
+	(alarms, alarm_list) = load_alarms(settings['alarm_file'])
+
 # Clean up what we can and quit
 def clean_up_and_quit():
 	global process_id
@@ -189,6 +197,7 @@ settings = parse_config_file(CONF_FILE)
 # Add signal handlers
 signal.signal(signal.SIGINT, handle_sigint)
 signal.signal(signal.SIGABRT, handle_sigabrt)
+signal.signal(signal.SIGUSR1, handle_sigusr1)
 
 # Create a hashtable of subscriptions
 subscriptions = {}
