@@ -56,6 +56,8 @@ def load_alarms(filename):
 			values = ['', []]
 			for char in line.strip():
 				if char not in split_chars:
+					# Characters before the first split are part of the name, characters after
+					# the split are part of the command
 					if not found_split:
 						values[0] += char
 					else:
@@ -76,14 +78,15 @@ def load_alarms(filename):
 # Listen for connections from the server and handle them
 def listen(settings):
 	# Create a socket and listen for packets
-	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	s.bind((settings['address'], settings['port']))
-	s.listen(1)
+	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+	sock.bind((settings['address'], settings['port']))
+	sock.listen(1)
 	Log.debug('Listening on port %i' % settings['port'])
 	# This is our main listening thread
 	while True:
 		# Accept incoming connection
-		connection, address = s.accept()
+		connection, address = sock.accept()
 		server = address[0] + ':' + str(address[1])
 		Log.debug('Connection from %s' % server)
 		# Receive data
@@ -112,7 +115,7 @@ def listen(settings):
 		# Close the connection from the server
 		connection.close()
 	# Close the socket
-	s.close()
+	sock.close()
 
 # Execute the command associated with this alarm and return success or failure
 def dispatch_alarm(alarm_name):
