@@ -39,8 +39,34 @@ def clean_up_and_quit():
 	# Abort the main thread
 	os.kill(process_id, signal.SIGABRT)
 
+# Get settings from file and return a dictionary of settings
+def parse_config_file(filename):
+	# Use ConfigParser to handle the actual parsing of the file
+	p = ConfigParser.RawConfigParser()
+	p.read(filename)
+	# Build the dictionary
+	settings = {}
+
+	# Update interval
+	settings['update_interval'] = int(p.get('Global', 'updateperiod'))
+	# Maximum update interval is 1 hour. Obviously, it has to be positive too.
+	if settings['update_interval'] > 60 or settings['update_interval'] < 1:
+		Log.warn('Changed queue update interval to 60 from %s' % settings['update_interval'])
+		settings['update_interval'] = 60
+
+	# IP address and port to use
+	settings['address'] = p.get('Global', 'address')
+	settings['port'] = int(p.get('Global', 'port'))
+	# Port less than 1024 is probably very unwise
+	if settings['port'] < 1024:
+		Log.warn('TCP port is less than 1024 (%i)' % settings['port'])
+	# Location of the alarm file
+	settings['alarm_file'] = p.get('Global', 'alarmfile')
+
+	return settings
 # Load alarms from a file
 # Return an AlarmQueue object and a list of the names of the alarms loaded
+
 def load_alarms(filename):
 	q = AlarmQueue.AlarmQueue()
 	l = []
@@ -59,31 +85,6 @@ def load_alarms(filename):
 	fh.close()
 	return (q, l)
 	
-# Main listening thread
-def listening_thread(address, port, alarm_list):
-	# Main listening thread
-	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	try:
-		s.bind((address, port))
-	except socket.error, e:
-		# Can't bind to address; let's just quit then
-		Log.error('Unable to bind to address %s:%i -- %s' % (address, port, str(e)))
-		s.close()
-		clean_up_and_quit()
-		return
-
-	s.listen(1)
-	Log.debug('Listening on %s:%i' % (address, port))
-
-	while True:
-		# Accept incoming connection
-		connection, in_address = s.accept()
-		# Create a thread to handle this connection
-		c = Client.IncomingClient(in_address[0], in_address[1], connection, handle_client_command)
-		c.start()
-		
-	s.close()
-
 # Do something intelligent with client commands and return an appropriate response
 def handle_client_command(client, command):
 	# Default response is just be quiet (i.e. no response)
@@ -150,32 +151,32 @@ def add_subscription(ip, port, alarm_name):
 	# Tell the client they've been added to the list
 	return Commands.create_command_string(('S', alarm_name))
 
-# Get settings from file and return a dictionary of settings
-def parse_config_file(filename):
-	# Use ConfigParser to handle the actual parsing of the file
-	p = ConfigParser.RawConfigParser()
-	p.read(filename)
-	# Build the dictionary
-	settings = {}
+# Main listening thread
+def listening_thread(address, port, alarm_list):
+	# Main listening thread
+	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	try:
+		s.bind((address, port))
+	except socket.error, e:
+		# Can't bind to address; let's just quit then
+		Log.error('Unable to bind to address %s:%i -- %s' % (address, port, str(e)))
+		s.close()
+		clean_up_and_quit()
+		return
 
-	# Update interval
-	settings['update_interval'] = int(p.get('Global', 'updateperiod'))
-	# Maximum update interval is 1 hour. Obviously, it has to be positive too.
-	if settings['update_interval'] > 60 or settings['update_interval'] < 1:
-		Log.warn('Changed queue update interval to 60 from %s' % settings['update_interval'])
-		settings['update_interval'] = 60
+	s.listen(1)
+	Log.debug('Listening on %s:%i' % (address, port))
 
-	# IP address and port to use
-	settings['address'] = p.get('Global', 'address')
-	settings['port'] = int(p.get('Global', 'port'))
-	# Port less than 1024 is probably very unwise
-	if settings['port'] < 1024:
-		Log.warn('TCP port is less than 1024 (%i)' % settings['port'])
-	# Location of the alarm file
-	settings['alarm_file'] = p.get('Global', 'alarmfile')
+	while True:
+		# Accept incoming connection
+		connection, in_address = s.accept()
+		# Create a thread to handle this connection
+		c = Client.IncomingClient(in_address[0], in_address[1], connection, handle_client_command)
+		c.start()
+		
+	s.close()
 
-	return settings
-
+# Main thread
 # Get our PID
 process_id = os.getpid()
 
