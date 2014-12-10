@@ -79,14 +79,13 @@ def listening_thread(address, port, alarm_list):
 		# Accept incoming connection
 		connection, in_address = s.accept()
 		# Create a thread to handle this connection
-		#t = thread.start_new_thread(client_thread, (connection, in_address, alarm_list))
-		c = Client.IncomingClient(in_address[0], in_address[1], connection, handle_command)
+		c = Client.IncomingClient(in_address[0], in_address[1], connection, handle_client_command)
 		c.start()
 		
 	s.close()
 
 # Do something intelligent with client commands and return an appropriate response
-def handle_command(client, command):
+def handle_client_command(client, command):
 	# Default response is just be quiet (i.e. no response)
 	response = None
 	# Was the command parsed successfully?
@@ -118,19 +117,17 @@ def handle_command(client, command):
 
 	return response
 
-# Alert a client about an alarm
-def alert_client(client, alarm):
-	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	cmd_success = False
-	try:
-		cmd_success = Commands.send_alarm(s, alarm.name, client.ip, client.port)
-		if not cmd_success:
-			Log.debug('Error sending command to client at %s:%i' % (client.ip, client.port))
-		else:
+# Record a client's response to an alarm
+def handle_alarm_response(client, command):
+	if command:
+		if command[0] == 'S':
 			Log.debug('Client at %s:%i indicates success.' % (client.ip, client.port))
-	except socket.error:
-		Log.debug('Failed to connect to client at %s:%i' % (client.ip, client.port))
-	s.close()
+		elif command[0] == 'F':
+			Log.debug('Client at %s:%i indicates failure.' % (client.ip, client.port))
+		else:
+			Log.debug('Invalid response from client at %s:%i' % (client.ip, client.port))
+	else:
+		Log.debug('Unknown response from client at %s:%i.' % (client.ip, client.port))
 
 # Add a subscription
 def add_subscription(ip, port, alarm_name):
@@ -238,7 +235,9 @@ while True:
 		# Notify all subscribed clients
 		for client in clients:
 			# Spin off a thread to talk to the client
-			t_handle = thread.start_new_thread(alert_client, (client, alarm))
+			#t_handle = thread.start_new_thread(alert_client, (client, alarm))
+			c = Client.OutgoingClient(client.ip, client.port, handle_alarm_response)
+			c.send_command(Commands.create_command_string(('A', alarm.name)))
 	else:
 		Log.debug('No subscriptions to alarm "%s"' % alarm.name)
 	# Sleep for 1 second to prevent the alarm from firing again
