@@ -2,6 +2,7 @@
 # Valid commands are:
 #	A <NAME>  -- Triggers the alarm called NAME if it exists
 #	B <NAME>  -- Subscribe client to alarm NAME
+#	U <NAME>  -- Unsubscribe from alarm NAME
 #	S <NAME>  -- Alarm NAME successfully triggered OR subscription to NAME registered
 #	F <NAME>  -- Alarm NAME failed
 #	FB <NAME> -- Subscription to NAME failed because client is already subscribed to this alarm
@@ -27,6 +28,12 @@ def parse_command(command_string):
 		# B <NAME>
 		if len(cmd) == 2:
 			return ('B', cmd[1])
+		else:
+			return None
+	elif cmd[0] == 'U':
+		# U <NAME>
+		if len(cmd) == 2:
+			return ('U', cmd[1])
 		else:
 			return None
 	elif cmd[0] == 'S':
@@ -67,6 +74,11 @@ def create_command_string(command):
 	elif command[0] == 'B':
 		if len(command) == 2:
 			return 'B ' + command[1]
+		else:
+			return None
+	elif command[0] == 'U':
+		if len(command) == 2:
+			return 'U ' + command[1]
 		else:
 			return None
 	elif command[0] == 'S':

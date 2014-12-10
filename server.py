@@ -116,6 +116,19 @@ def handle_client_command(client, command):
 				Log.debug('Already subscribed.')
 			else:
 				Log.debug('Unknown response sent (%s)' % response)
+		# Client wants to unsubscribe frm an alarm -- response required
+		elif command[0] == 'U':
+			name = command[1]
+			Log.debug('%s wants to unsubscribe from %s' % (str(client), name))
+			response = remove_subscription(client.ip, client.port, name)
+			if response[0] == 'S':
+				Log.debug('Subscription removed.')
+			elif response[:2] == 'FN':
+				Log.debug('No such alarm.')
+			elif response[:2] == 'FB':
+				Log.debug('Not subscribed.')
+			else:
+				Log.debug('Unknown response sent (%s)' % response)
 		# We don't know what to do with this command
 		else:
 			Log.error('Invalid command from %s: "%s"' % (str(client), command_string))
@@ -155,6 +168,34 @@ def add_subscription(ip, port, alarm_name):
 		else:
 			subscriptions[alarm_name] = [client_obj]
 	# Tell the client they've been added to the list
+	return Commands.create_command_string(('S', alarm_name))
+
+# Remove a subscription
+def remove_subscription(ip, port, alarm_name):
+	# TODO: This is global and should probably not be
+	global subscriptions, alarm_queue
+	# Does the alarm exist
+	if alarm_name not in alarm_queue.names:
+		return Commands.create_command_string(('FN', alarm_name))
+	# Try to delete the subscription
+	client_obj = Client.Client(ip, port)
+	if alarm_name in alarm_queue.names:
+		if alarm_name in subscriptions:
+			if any(c for c in subscriptions[alarm_name] if c == client_obj):
+				try:
+					index = subscriptions[alarm_name].index(client_obj)
+					del	subscriptions[alarm_name][index]
+				except ValueError:
+					# Not subscribed
+					return Commands.create_command_string(('FB', alarm_name))
+					
+			# Not subscribed
+			else:
+				return Commands.create_command_string(('FB', alarm_name))
+		else:
+			# Not subscribed
+			return Commands.create_command_string(('FB', alarm_name))
+	# Tell the client they've been removed from the list
 	return Commands.create_command_string(('S', alarm_name))
 
 # Main listening thread
