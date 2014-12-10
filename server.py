@@ -31,7 +31,6 @@ def handle_sigabrt(signal, frame):
 	sys.stdout.flush()
 	# Exit
 	sys.exit(0)
-	
 
 # Clean up what we can and quit
 def clean_up_and_quit():
@@ -80,46 +79,29 @@ def listening_thread(address, port, alarm_list):
 		# Accept incoming connection
 		connection, in_address = s.accept()
 		# Create a thread to handle this connection
-		t = thread.start_new_thread(client_thread, (connection, in_address, alarm_list))
+		#t = thread.start_new_thread(client_thread, (connection, in_address, alarm_list))
+		c = Client.IncomingClient(in_address[0], in_address[1], connection, handle_command)
+		c.start()
 		
 	s.close()
 
-# A thread to handle client connections
-def client_thread(connection, in_address, alarm_list):
-	# We'll always refer to the client by ip and port, so this saves some space
-	client = in_address[0] + ':' + str(in_address[1])
-	Log.debug('Connection from client %s' % client)
-	# Receive data
-	command_string = connection.recv(BUFFER_SIZE)
-	# Print the command string
-	Log.debug('Received command "%s" from %s' % (command_string, client))
-	# Parse the command
-	command = Commands.parse_command(command_string)
-	# Do something with the command
-	response = handle_command(in_address[0], in_address[1], command, alarm_list)
-	# Respond to the client and close the connection
-	if response:
-		connection.send(response)
-	connection.close()
-
 # Do something intelligent with client commands and return an appropriate response
-def handle_command(client_addr, client_port, command, alarm_list):
-	client = client_addr + ':' + str(client_port)
+def handle_command(client, command):
 	# Default response is just be quiet (i.e. no response)
 	response = None
 	# Was the command parsed successfully?
 	if command:
 		# Alarm succeeded
 		if command[0] == 'S':
-			Log.debug('Alarm %s succeeded on client %s' % (command[1], client))
+			Log.debug('Alarm %s succeeded on client %s' % (command[1], str(client)))
 		# Alarm failed
 		elif command[0] == 'F':
-			Log.debug('Alarm %s failed on client %s' % (command[1], client))
+			Log.debug('Alarm %s failed on client %s' % (command[1], str(client)))
 		# Client wants to subscribe to an alarm -- this requires a response
 		elif command[0] == 'B':
 			name = command[1]
-			Log.debug('%s trying to subscribe to %s' % (client, name))
-			response = add_subscription(client_addr, client_port, name, alarm_list)
+			Log.debug('%s trying to subscribe to %s' % (str(client), name))
+			response = add_subscription(client.ip, client.port, name)
 			if response[0] == 'S':
 				Log.debug('Subscription added.')
 			elif response[:2] == 'FN':
@@ -130,9 +112,9 @@ def handle_command(client_addr, client_port, command, alarm_list):
 				Log.debug('Unknown response sent (%s)' % response)
 		# We don't know what to do with this command
 		else:
-			Log.error('Invalid command from %s: "%s"' % (client, command_string))
+			Log.error('Invalid command from %s: "%s"' % (str(client), command_string))
 	else:
-		Log.error('Invalid command from %s: "%s"' % (client, command_string))
+		Log.error('Invalid command from %s: "%s"' % (str(client), command_string))
 
 	return response
 
@@ -151,9 +133,9 @@ def alert_client(client, alarm):
 	s.close()
 
 # Add a subscription
-def add_subscription(ip, port, alarm_name, alarm_list):
+def add_subscription(ip, port, alarm_name):
 	# TODO: This is global and should probably not be
-	global subscriptions
+	global subscriptions, alarm_list
 	# Does the alarm exist
 	if alarm_name not in alarm_list:
 		return Commands.create_command_string(('FN', alarm_name))
