@@ -15,7 +15,7 @@ Netalarm Roadmap
   * Server (and perhaps also client) authentication
   * Messages should be signed
   * Optional message encryption
-    * Either client or server can require it
+    * Either client or server can require it from the other
     * Probably TLS
 * ...more versions...
 * Version 1.0
